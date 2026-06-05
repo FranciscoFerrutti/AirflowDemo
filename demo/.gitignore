@@ -1,0 +1,6 @@
+# Artefactos generados en runtime — no versionar
+logs/
+data/output/
+plugins/
+__pycache__/
+*.pyc

@@ -1,0 +1,105 @@
+# ============================================================================
+#  Apache Airflow — Demo: Pipeline diario de reportes de ventas
+#  Ingeniería de Software II
+# ----------------------------------------------------------------------------
+#  Setup mínimo y reproducible para una demo en vivo (< 5 min de ejecución).
+#
+#  Componentes (se corresponden 1:1 con el diagrama de la diapositiva 4):
+#    - postgres            -> Metadata Database (única fuente de verdad)
+#    - airflow-init        -> migra el schema y crea el usuario admin
+#    - airflow-scheduler   -> Scheduler (parsea DAGs, resuelve dependencias)
+#    - airflow-webserver   -> Web UI / API (visualización y disparo manual)
+#
+#  Executor: LocalExecutor  -> ejecuta las tasks en procesos del propio
+#  scheduler. Suficiente para la demo; en producción se cambia a
+#  Celery/Kubernetes SIN tocar los DAGs (ver diapositiva 7: Scalability).
+#
+#  Credenciales UI:  admin / admin   ->  http://localhost:8080
+# ============================================================================
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.10.4
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    # Parseo rápido de DAGs para que el DAG aparezca enseguida en la demo.
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "10"
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+    # Habilita el endpoint de salud del scheduler (puerto 8974) que usa su
+    # healthcheck; sin esto el contenedor aparecería como "unhealthy".
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    # Zona horaria de la UI (opcional, ajustar a gusto).
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: "America/Argentina/Buenos_Aires"
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./data:/opt/airflow/data
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
+
+  # Servicio de inicialización (one-shot): migra el schema del Metadata DB
+  # y crea el usuario admin. Termina con exit 0; los demás servicios esperan
+  # a que complete satisfactoriamente.
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username admin --password admin \
+          --firstname Admin --lastname User \
+          --role Admin --email admin@example.com || true
+    restart: on-failure
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres-db-volume:

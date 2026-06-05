@@ -1,0 +1,6 @@
+fecha,producto,categoria,cantidad,precio_unitario,region
+2026-06-05,Notebook Pro 14,Computacion,3,1850000.00,Centro
+2026-06-05,Mouse Inalambrico,Accesorios,ABC,12500.50,Centro
+2026-06-05,Teclado Mecanico,Accesorios,-5,34900.00,Norte
+2026-06-05,Monitor 27 4K,Computacion,7,,Sur
+2026-06-05,Auriculares BT,Audio,40,28750.00,Centro
