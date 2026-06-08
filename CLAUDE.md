@@ -74,11 +74,9 @@ Debe responder las siguientes preguntas:
 Analizar explícitamente el impacto sobre:
 
 * Fault Tolerance: Fault Tolerance defines the ability of the system to continue being responsive upong failure of components of the system. The behavior upon such failures may be degraded or limited.
-* Interoperability: Interoperability is the ability of a system or different systems to operate successfully by communicating and exchanging information with other external systems written and run by external parties.
 * Manageability: Manageability defines how easy it is for system administrators to manage the application, usually through sufficient and useful instrumentation exposed for use in monitoring systems  and for debugging and performance tuning.
 * Scalability: Scalability is ability of a system to either handle increases in load without impact on the  performance of the system, or the ability to be readily enlarged.
 * Auditability: The ability to conduct a review and examination of system records and activities in order to test the adequacy and effectiveness of data security and data integrity.
-* Portability: Portability defines the ability to use the same system under different environments.
 
 
 Indicar beneficios y compromisos asociados.

@@ -48,3 +48,15 @@ Lectura recomendada: `tail -n 30 CHANGELOG_PRESENTACION.md` (o `Get-Content CHAN
 ### Notes
 - Canva NO importa las notas del presentador ni los tiempos del .md (pendiente cargarlas como presenter notes si se desea).
 - Fuente de verdad del contenido: presentacion.md.
+
+---
+
+## [0.3.0] — 2026-06-08 — Reducción de atributos de calidad
+### Removed
+- Eliminados los atributos **Interoperability** y **Portability** del análisis de atributos de calidad.
+  - Diapositiva 7 (Atributos de calidad 1/2): quitadas ambas filas de la tabla.
+  - Diapositiva 8 (Atributos de calidad 2/2): quitado el compromiso asociado a Portability.
+
+### Changed
+- Notas del presentador de la Diapositiva 7 ajustadas (eliminada la mención a Interoperability vía providers).
+- El análisis ADD queda enfocado en los 4 atributos del CLAUDE.md: Fault Tolerance, Manageability, Scalability y Auditability.

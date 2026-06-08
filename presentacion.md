@@ -159,14 +159,12 @@ validar_datos >> calcular_metricas >> generar_reporte >> notificar
 | **Fault Tolerance** | Reintentos automáticos, estado persistido en Metadata DB, re-ejecución selectiva de tasks fallidas sin rehacer el DAG completo. |
 | **Manageability** | Web UI con estado de cada run, logs centralizados, instrumentación y métricas (StatsD/OpenTelemetry) para monitoreo y tuning. |
 | **Auditability** | Historial completo y persistente: qué corrió, cuándo, con qué resultado y por qué falló. Trazabilidad para compliance. |
-| **Interoperability** | Cientos de *providers*/operadores: bases de datos, AWS/GCP/Azure, Spark, Kubernetes, APIs. Actúa como capa de integración. |
 | **Scalability** | Separación scheduler/executor: del `LocalExecutor` al `Celery`/`KubernetesExecutor` sin reescribir los DAGs. |
-| **Portability** | Mismo DAG corre en local, on-premise o cloud; empaquetable en contenedores. |
 
 ⏱️ **Tiempo estimado: 1:00**
 
 > **Notas del presentador:**
-> No leer la tabla entera: destacar 3 atributos diferenciales. **Fault tolerance** (estado persistido + reintentos + re-run granular) resuelve directamente los fallos silenciosos de la diapositiva 2. **Auditability** es el argumento de venta hacia compliance/gobierno de datos. **Scalability** es la consecuencia directa de la separación arquitectónica de la diapositiva 4. Interoperability vía providers es a menudo el motivo práctico de adopción.
+> No leer la tabla entera: destacar 3 atributos diferenciales. **Fault tolerance** (estado persistido + reintentos + re-run granular) resuelve directamente los fallos silenciosos de la diapositiva 2. **Auditability** es el argumento de venta hacia compliance/gobierno de datos. **Scalability** es la consecuencia directa de la separación arquitectónica de la diapositiva 4.
 
 ---
 
@@ -178,7 +176,6 @@ validar_datos >> calcular_metricas >> generar_reporte >> notificar
 - **Fault Tolerance tiene un límite:** la Metadata DB es **single point of failure**. Alta disponibilidad real exige HA en la base, scheduler redundante y monitoreo → más complejidad.
 - **Scalability cuesta operación:** el `CeleryExecutor` agrega broker (Redis/RabbitMQ); el `KubernetesExecutor` exige operar un clúster. Se gana escala, se paga superficie operativa.
 - **Manageability/Auditability requieren disciplina:** la UI ayuda, pero sin convenciones de naming, ownership y alerting el historial se vuelve ruido.
-- **Portability ≠ trivialidad:** portar es posible, pero las dependencias de Python y los providers atan el entorno; reproducibilidad real exige contenedores.
 
 ⏱️ **Tiempo estimado: 0:50**
 
