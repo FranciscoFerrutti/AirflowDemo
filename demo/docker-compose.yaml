@@ -32,6 +32,11 @@ x-airflow-common: &airflow-common
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
     # Zona horaria de la UI (opcional, ajustar a gusto).
     AIRFLOW__CORE__DEFAULT_TIMEZONE: "America/Argentina/Buenos_Aires"
+    # Connection al "warehouse" (Postgres dedicado) usada por el DAG avanzado
+    # vía SQLExecuteQueryOperator(conn_id="warehouse"). Airflow resuelve la
+    # variable AIRFLOW_CONN_<CONN_ID> automáticamente: no hace falta crearla
+    # a mano en la UI (Manageability / config as code).
+    AIRFLOW_CONN_WAREHOUSE: "postgresql://wh:wh@warehouse-db:5432/warehouse"
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -40,6 +45,8 @@ x-airflow-common: &airflow-common
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     postgres:
+      condition: service_healthy
+    warehouse-db:
       condition: service_healthy
 
 services:
@@ -53,6 +60,23 @@ services:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
+
+  # Postgres dedicado que actúa como "Data Warehouse" destino del DAG avanzado.
+  # Está separado de la Metadata DB a propósito: NUNCA se debe usar la base de
+  # metadatos de Airflow como almacén de datos de negocio.
+  warehouse-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: wh
+      POSTGRES_PASSWORD: wh
+      POSTGRES_DB: warehouse
+    volumes:
+      - warehouse-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "wh"]
       interval: 5s
       retries: 5
     restart: always
@@ -103,3 +127,4 @@ services:
 
 volumes:
   postgres-db-volume:
+  warehouse-db-volume:

@@ -24,6 +24,40 @@ Lectura recomendada: `tail -n 30 CHANGELOG_DEMO.md` (o `Get-Content CHANGELOG_DE
 
 ---
 
+## [0.1.0] — 2026-06-08 — Demo implementada y verificada
+
+### Added — Entorno (`demo/`)
+- `docker-compose.yaml`: stack reproducible Postgres (Metadata DB) + Airflow
+  2.10.4 con `LocalExecutor`. UI en http://localhost:8080 (admin/admin).
+  Mapea 1:1 al diagrama de arquitectura de la diapositiva 4.
+- `warehouse-db`: Postgres dedicado como Data Warehouse destino (separado de la
+  Metadata DB a propósito). Connection `warehouse` inyectada por env var.
+- `README.md`: guion de demo en vivo, troubleshooting y estructura.
+
+### Added — DAG simple `reporte_ventas_diario`
+- Pipeline lineal de 6 pasos (leer → validar → calcular → generar → guardar →
+  notificar), TaskFlow API, sin dependencias externas (stdlib).
+- `retries=2` con backoff; params `archivo` y `simular_fallo_transitorio`.
+- Datasets: `ventas.csv` (válido) y `ventas_corrupto.csv` (para fail-fast).
+
+### Added — DAG avanzado `reporte_ventas_avanzado`
+- ETL multi-fuente que ejercita: PARALELISMO (fan-out/fan-in de 2 fuentes),
+  BRANCH (`@task.branch`) + TRIGGER RULE (`NONE_FAILED_MIN_ONE_SUCCESS`),
+  operadores heterogéneos (Empty/Python/SQLExecuteQuery/Bash) y CARGA a
+  warehouse vía SQL. Datasets `ventas_online.csv` y `ventas_tienda.csv`.
+
+### Verified (ejecución real sobre el scheduler)
+- Simple — camino feliz: 6/6 success en ~5 s; reporte generado.
+- Simple — CSV corrupto: `validar_datos` falla fast; downstream no corre.
+- Simple — fallo transitorio: `validar_datos` UP_FOR_RETRY → SUCCESS (~33 s).
+- Avanzado: 16 success + 1 skipped (rama no tomada); fila cargada en warehouse
+  (segmento ALERTA); artefacto `.txt.gz` + `.sha256` generado por Bash.
+
+### State
+- Ambos DAGs quedan PAUSADOS; warehouse y `data/output/` limpios para la demo.
+
+---
+
 ## [0.1.0] — 2026-06-05 — Demo implementada
 
 ### Added

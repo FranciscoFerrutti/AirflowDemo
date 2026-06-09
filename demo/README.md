@@ -30,6 +30,7 @@ No se necesita instalar Python ni Airflow en el host: todo corre en contenedores
 | `airflow-init`      | One-shot: migra el schema y crea el usuario `admin`     |
 | `airflow-scheduler` | **Scheduler** — parsea DAGs, resuelve dependencias      |
 | `airflow-webserver` | **Web UI / API** — visualización y disparo manual       |
+| `warehouse-db`      | Postgres **dedicado** como Data Warehouse destino (DAG avanzado) |
 
 **Executor:** `LocalExecutor` (las tasks corren en procesos del scheduler).
 Punto clave de la charla: pasar a `Celery`/`KubernetesExecutor` para escalar
@@ -134,6 +135,48 @@ atributos de calidad que justifican la decisión arquitectónica.
 
 ---
 
+## 5b. DAG avanzado: `reporte_ventas_avanzado`
+
+Versión "realista" del pipeline, pensada para mostrar **más capacidades en
+vivo** cuando sobra tiempo (o para reemplazar al simple si se prioriza impacto).
+Definido en `dags/reporte_ventas_avanzado.py`.
+
+```
+inicio ─┬─► extraer_online ─► validar_online ─┐
+        │                                      ├─► consolidar ─► calcular_metricas ─► decidir ─┬─► ruta_alerta ─┐
+        ├─► extraer_tienda ─► validar_tienda ──┘                                               └─► ruta_normal ─┤
+        │                                                                                                        ▼
+        └─► preparar_warehouse ──────────────────────────────────────────────────────────────► cargar_warehouse(SQL)
+              fin ◄─ notificar ◄─ comprimir_reporte(Bash) ◄─ guardar_reporte ◄─ generar_reporte ◄─ verificar_carga(SQL)
+```
+
+| Concepto que demuestra | Cómo | Atributo de calidad |
+|---|---|---|
+| **Paralelismo** (fan-out/fan-in) | 2 fuentes (online/tienda) extraídas y validadas en ramas concurrentes, luego `consolidar` | Scalability |
+| **Branch + trigger rules** | `@task.branch decidir` elige `ruta_alerta`/`ruta_normal`; el join usa `NONE_FAILED_MIN_ONE_SUCCESS` para seguir aunque una rama quede *skipped* | Fault Tolerance |
+| **Operadores heterogéneos** | `EmptyOperator`, `@task` (Python), `SQLExecuteQueryOperator`, `BashOperator` en un mismo grafo | Interoperability |
+| **Carga a warehouse** | `SQLExecuteQueryOperator` inserta el resumen en un Postgres dedicado (la "L" de ETL/ELT) | Interoperability |
+
+**Parámetro:** `umbral_alerta` (default `15000000`). Si los ingresos del día lo
+superan, se toma `ruta_alerta` y el segmento se marca `ALERTA`.
+
+### Guion (variante avanzada, ~3 min)
+1. Vista **Graph**: señalar las **ramas paralelas** (online/tienda corren a la
+   vez) y la **bifurcación** `decidir` con una rama en gris (*skipped*).
+2. Disparar ▶. Ver el fan-out ejecutándose en paralelo y el join continuar pese
+   a la rama skipped (trigger rule).
+3. Abrir **Logs** de `cargar_warehouse` y `verificar_carga`: el `SELECT` muestra
+   la fila cargada en el warehouse.
+4. Mostrar el artefacto comprimido (`.txt.gz` + `.sha256`) que dejó el
+   `BashOperator` en `data/output/`.
+
+Consultar el warehouse directamente (opcional):
+```bash
+docker compose exec warehouse-db psql -U wh -d warehouse -c "SELECT * FROM ventas_resumen;"
+```
+
+---
+
 ## 6. Alternativa por línea de comandos (sin UI)
 
 Útil si falla el proyector o para ensayar:
@@ -161,11 +204,14 @@ demo/
 ├── docker-compose.yaml          # Stack: Postgres + Airflow (LocalExecutor)
 ├── .env                         # AIRFLOW_UID
 ├── dags/
-│   └── reporte_ventas_diario.py # El DAG (6 tasks + retries + params)
+│   ├── reporte_ventas_diario.py   # DAG simple (6 tasks lineales + retries)
+│   └── reporte_ventas_avanzado.py # DAG avanzado (paralelismo+branch+SQL+Bash)
 ├── data/
 │   ├── input/
-│   │   ├── ventas.csv           # Dataset válido (camino feliz)
-│   │   └── ventas_corrupto.csv  # Dataset inválido (demo de validación)
+│   │   ├── ventas.csv           # Dataset válido (camino feliz, DAG simple)
+│   │   ├── ventas_corrupto.csv  # Dataset inválido (demo de validación)
+│   │   ├── ventas_online.csv    # Fuente 1 (DAG avanzado)
+│   │   └── ventas_tienda.csv    # Fuente 2 (DAG avanzado)
 │   └── output/                  # Reportes generados (runtime)
 ├── logs/                        # Logs de Airflow (runtime)
 └── plugins/                     # (vacío)
